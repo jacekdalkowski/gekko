@@ -5,6 +5,7 @@ const serve = require('koa-static');
 const cors = require('koa-cors');
 const _ = require('lodash');
 const bodyParser = require('koa-bodyparser');
+const auth = require('basic-auth')
 
 const opn = require('opn');
 const server = require('http').createServer();
@@ -69,11 +70,34 @@ router.post('/api/getCandles', require(ROUTE('getCandles')));
 
 app
   .use(cors())
+  .use(function *(next){ //(ctx, next) => {
+    // try {
+    //   await next();
+    // } catch (err) {
+    //   if (err.status === 401) {
+    //     ctx.status = 401;
+    //     ctx.set('WWW-Authenticate', 'Basic');
+    //     ctx.body = 'cant haz that';
+    //   } else {
+    //     throw err;
+    //   }
+    // }
+    var credentials = auth(this.request);
+    
+    if (!credentials || credentials.name !== 'john' || credentials.pass !== 'secret') {
+      this.response.ctx.status = 401;
+      this.response.ctx.set('WWW-Authenticate', 'Basic realm="example"');
+      this.body = 'Access denied';
+    } else {
+      yield next;
+    }
+  })
   .use(serve(WEBROOT + 'vue'))
   .use(bodyParser())
   .use(require('koa-logger')())
   .use(router.routes())
   .use(router.allowedMethods());
+
 
 server.timeout = config.api.timeout||120000;
 server.on('request', app.callback());
